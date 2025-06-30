@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>P.E.C 2025 Memory Wall</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Poppins:wght@600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-light: linear-gradient(135deg, #0e5d96, #5f99f7);
+      --bg-dark: #1e1e1e;
+      --text-light: #fff;
+      --text-dark: #eee;
+      --card-bg-light: rgba(255,255,255,0.15);
+      --card-bg-dark: rgba(255,255,255,0.05);
+      --button-bg: #ffcc00;
+    }
+    body {
+      margin: 0;
+      padding: 1em;
+      font-family: 'Open Sans', sans-serif;
+      background: var(--bg-light);
+      color: var(--text-light);
+      transition: background 0.5s, color 0.5s;
+    }
+    .dark-mode {
+      background: var(--bg-dark);
+      color: var(--text-dark);
+    }
+    h1, h2 {
+      font-family: 'Poppins', sans-serif;
+      text-align: center;
+    }
+    #toggleMode {
+      display: block;
+      margin: 1em auto 1.5em;
+      padding: 0.5em 1em;
+      background: var(--button-bg);
+      color: #000;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    form {
+      background: rgba(255,255,255,0.1);
+      padding: 1em;
+      border-radius: 10px;
+      margin-bottom: 2em;
+      backdrop-filter: blur(4px);
+    }
+    input, textarea, button {
+      display: block;
+      width: 100%;
+      margin-top: 0.5em;
+      padding: 0.7em;
+      font-size: 1em;
+      border: none;
+      border-radius: 6px;
+    }
+    input, textarea {
+      background: #ffffffdd;
+      color: #000;
+    }
+    button {
+      background: var(--button-bg);
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #gallery {
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 1em;
+    }
+    .memory {
+      background: var(--card-bg-light);
+      padding: 1em;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      transition: transform 0.3s;
+    }
+    .dark-mode .memory {
+      background: var(--card-bg-dark);
+    }
+    .memory:hover {
+      transform: scale(1.01);
+    }
+    .like-btn {
+      color: var(--button-bg);
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 1.2em;
+    }
+    .memory img, .memory video, .memory audio {
+      max-width: 100%;
+      margin-top: 0.5em;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📘 P.E.C 2025 Memory Wall</h1>
+  <button id="toggleMode">🌓 Toggle Dark Mode</button>
+  <form id="uploadForm">
+    <input type="text" id="name" placeholder="Your name" required />
+    <textarea id="comment" placeholder="Your comment (optional)"></textarea>
+    <input type="file" id="mediaFile" required />
+    <button type="submit">📤 Upload Memory</button>
+  </form>
+
+  <h2>📂 All Uploaded Memories</h2>
+  <div id="gallery"></div>
+
+  <script>
+    const SUPABASE_URL = 'https://jrenekocbhlklmkqlmqq.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyZW5la29jYmhsa2xta3FsbXFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyNzQ1MTYsImV4cCI6MjA2Njg1MDUxNn0.nF0fcEeEhNp_5TpVzeVwYYXcHo2UiZ2__kswqagd_XQ';
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const bucket = 'uploads';
+
+    document.getElementById('toggleMode').addEventListener('click', () => {
+      document.body.classList.toggle('dark-mode');
+    });
+
+    async function fetchMemories() {
+      const { data } = await supabase
+        .from('memories')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = '';
+      data.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'memory';
+        let preview = '';
+        if (item.type.startsWith('image')) {
+          preview = `<img src="${item.url}" alt="uploaded image" />`;
+        } else if (item.type.startsWith('video')) {
+          preview = `<video controls src="${item.url}"></video>`;
+        } else if (item.type.startsWith('audio')) {
+          preview = `<audio controls src="${item.url}"></audio>`;
+        } else {
+          preview = `<a href="${item.url}" target="_blank">Download File</a>`;
+        }
+
+        div.innerHTML = `
+          <strong>${item.name}</strong><br/>
+          ${item.comment ? `<em>${item.comment}</em><br/>` : ''}
+          ${preview}<br/>
+          <button class="like-btn" onclick="likeMemory(${item.id}, this)">❤️ ${item.likes}</button>
+        `;
+        gallery.appendChild(div);
+      });
+    }
+
+    async function likeMemory(id, button) {
+      const currentLikes = parseInt(button.textContent.replace('❤️ ', ''));
+      const { error } = await supabase
+        .from('memories')
+        .update({ likes: currentLikes + 1 })
+        .eq('id', id);
+      if (!error) {
+        button.textContent = `❤️ ${currentLikes + 1}`;
+      }
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value;
+      const comment = document.getElementById('comment').value || '';
+      const fileInput = document.getElementById('mediaFile');
+      const file = fileInput.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) return alert('File upload failed.');
+
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${fileName}`;
+      const mediaType = file.type;
+
+      const { error: insertError } = await supabase
+        .from('memories')
+        .insert([{ name, comment, url: publicUrl, type: mediaType, likes: 0 }]);
+
+      if (!insertError) {
+        alert('Memory uploaded!');
+        e.target.reset();
+        fetchMemories();
+      } else {
+        alert('Upload failed.');
+      }
+    });
+
+    fetchMemories();
+  </script>
+</body>
+</html>
